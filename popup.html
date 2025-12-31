@@ -31,8 +31,13 @@
                             <div class="popper-arrow"></div>
                             <div class="favorites-header">
                                 <span class="favorites-title">历史记录</span>
-                                <button id="clearAllBtn" class="clear-all-btn" title="清空全部">清空</button>
+                                <div class="header-actions">
+                                    <button id="exportBtn" class="action-icon-btn" title="导出">📤</button>
+                                    <button id="importBtn" class="action-icon-btn" title="导入">📥</button>
+                                    <button id="clearAllBtn" class="clear-all-btn" title="清空全部">清空</button>
+                                </div>
                             </div>
+                            <input type="file" id="importFileInput" accept=".json" style="display: none;" />
                             <div class="search-wrapper">
                                 <input type="text" id="historySearch" class="history-search" placeholder="搜索历史记录..." />
                             </div>

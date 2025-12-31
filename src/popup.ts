@@ -28,6 +28,9 @@ class PopupController {
   private favoritesSection: HTMLElement;
   private favoritesList: HTMLElement;
   private clearAllBtn: HTMLButtonElement;
+  private exportBtn: HTMLButtonElement;
+  private importBtn: HTMLButtonElement;
+  private importFileInput: HTMLInputElement;
   private storageInfo: HTMLElement;
   private storageUsage: HTMLElement;
   private favoritesCount: HTMLElement;
@@ -56,6 +59,9 @@ class PopupController {
       this.favoritesSection = document.getElementById('favoritesSection') as HTMLElement;
       this.favoritesList = document.getElementById('favoritesList') as HTMLElement;
       this.clearAllBtn = document.getElementById('clearAllBtn') as HTMLButtonElement;
+      this.exportBtn = document.getElementById('exportBtn') as HTMLButtonElement;
+      this.importBtn = document.getElementById('importBtn') as HTMLButtonElement;
+      this.importFileInput = document.getElementById('importFileInput') as HTMLInputElement;
       this.storageInfo = document.getElementById('storageInfo') as HTMLElement;
       this.storageUsage = document.getElementById('storageUsage') as HTMLElement;
       this.favoritesCount = document.getElementById('favoritesCount') as HTMLElement;
@@ -93,6 +99,9 @@ class PopupController {
     this.clearAllBtn.addEventListener('click', () => this.handleClearAllClick());
     this.historyBtn.addEventListener('click', () => this.toggleHistory());
     this.historySearch.addEventListener('input', () => this.handleSearchInput());
+    this.exportBtn.addEventListener('click', () => this.handleExportClick());
+    this.importBtn.addEventListener('click', () => this.handleImportClick());
+    this.importFileInput.addEventListener('change', (e) => this.handleFileSelect(e));
   }
 
   /**
@@ -266,6 +275,113 @@ class PopupController {
    */
   private handleTextInputFocus(): void {
     this.textInput.style.borderColor = '#4285f4';
+  }
+
+  /**
+   * Handle export button click
+   */
+  private async handleExportClick(): Promise<void> {
+    try {
+      const favorites = await this.favoritesManager.getFavorites();
+      
+      if (favorites.length === 0) {
+        this.showWarning('暂无记录可导出');
+        return;
+      }
+
+      this.exportBtn.textContent = '⏳';
+      
+      const jsonData = await this.storageService.exportHistory();
+      
+      // Create and download file
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `qr-history-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      this.showSuccessMessage(`已导出 ${favorites.length} 条记录`);
+    } catch (error) {
+      console.error('Export error:', error);
+      this.showError('导出失败，请重试');
+    } finally {
+      this.exportBtn.textContent = '📤';
+    }
+  }
+
+  /**
+   * Handle import button click
+   */
+  private handleImportClick(): void {
+    this.importFileInput.click();
+  }
+
+  /**
+   * Handle file selection for import
+   */
+  private async handleFileSelect(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    
+    if (!file) return;
+    
+    try {
+      this.importBtn.textContent = '⏳';
+      
+      const jsonData = await this.readFileAsText(file);
+      
+      // Ask user for import mode
+      const existingCount = (await this.favoritesManager.getFavorites()).length;
+      let mode: 'merge' | 'replace' = 'merge';
+      
+      if (existingCount > 0) {
+        const replaceConfirmed = confirm(
+          `当前有 ${existingCount} 条记录。\n\n` +
+          `点击"确定"将替换所有现有记录\n` +
+          `点击"取消"将合并（跳过重复项）`
+        );
+        mode = replaceConfirmed ? 'replace' : 'merge';
+      }
+      
+      const result = await this.storageService.importHistory(jsonData, mode);
+      
+      await this.refreshFavoritesList();
+      await this.updateHistoryCount();
+      
+      let message = `已导入 ${result.imported} 条记录`;
+      if (result.skipped > 0) {
+        message += `，跳过 ${result.skipped} 条`;
+      }
+      this.showSuccessMessage(message);
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      if (error instanceof Error) {
+        this.showError(error.message || '导入失败，请检查文件格式');
+      } else {
+        this.showError('导入失败，请检查文件格式');
+      }
+    } finally {
+      this.importBtn.textContent = '📥';
+      // Reset file input for re-selection
+      input.value = '';
+    }
+  }
+
+  /**
+   * Read file content as text
+   */
+  private readFileAsText(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('文件读取失败'));
+      reader.readAsText(file);
+    });
   }
 
   /**

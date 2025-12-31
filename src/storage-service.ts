@@ -304,4 +304,158 @@ export class StorageService {
       return true; // Assume space is available if check fails
     }
   }
+
+  /**
+   * Export history data to JSON format
+   * 
+   * @returns Promise resolving to JSON string of history data
+   */
+  async exportHistory(): Promise<string> {
+    try {
+      const storage = await this.loadExtensionStorage();
+      const exportData = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        favorites: storage.favorites.map(entry => {
+          // Safely convert dates to ISO string
+          let createdAt: string;
+          let updatedAt: string;
+          
+          try {
+            createdAt = entry.createdAt instanceof Date && !isNaN(entry.createdAt.getTime())
+              ? entry.createdAt.toISOString()
+              : (typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString());
+          } catch {
+            createdAt = new Date().toISOString();
+          }
+          
+          try {
+            updatedAt = entry.updatedAt instanceof Date && !isNaN(entry.updatedAt.getTime())
+              ? entry.updatedAt.toISOString()
+              : (typeof entry.updatedAt === 'string' ? entry.updatedAt : new Date().toISOString());
+          } catch {
+            updatedAt = new Date().toISOString();
+          }
+          
+          return {
+            id: entry.id,
+            text: entry.text,
+            name: entry.name,
+            createdAt,
+            updatedAt
+          };
+        })
+      };
+      return JSON.stringify(exportData, null, 2);
+    } catch (error) {
+      throw new StorageError(
+        'Failed to export history data',
+        'exportHistory',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Import history data from JSON format
+   * 
+   * @param jsonData JSON string containing history data
+   * @param mode Import mode: 'merge' to add to existing, 'replace' to overwrite
+   * @returns Promise resolving to import result with count of imported items
+   */
+  async importHistory(jsonData: string, mode: 'merge' | 'replace' = 'merge'): Promise<{ imported: number; skipped: number }> {
+    try {
+      const importData = JSON.parse(jsonData);
+      
+      // Validate import data structure
+      if (!this.isValidImportData(importData)) {
+        throw new StorageError(
+          '无效的导入文件格式',
+          'importHistory'
+        );
+      }
+
+      const storage = await this.loadExtensionStorage();
+      let imported = 0;
+      let skipped = 0;
+
+      if (mode === 'replace') {
+        // Replace mode: clear existing and import all
+        storage.favorites = importData.favorites.map((entry: any) => ({
+          id: entry.id || `qr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          text: entry.text,
+          name: entry.name,
+          createdAt: new Date(entry.createdAt),
+          updatedAt: new Date(entry.updatedAt)
+        }));
+        imported = storage.favorites.length;
+      } else {
+        // Merge mode: add new entries, skip duplicates by text
+        const existingTexts = new Set(storage.favorites.map(f => f.text));
+        
+        for (const entry of importData.favorites) {
+          if (existingTexts.has(entry.text)) {
+            skipped++;
+            continue;
+          }
+          
+          storage.favorites.push({
+            id: `qr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            text: entry.text,
+            name: entry.name,
+            createdAt: new Date(entry.createdAt),
+            updatedAt: new Date(entry.updatedAt)
+          });
+          existingTexts.add(entry.text);
+          imported++;
+        }
+      }
+
+      // Enforce max favorites limit
+      if (storage.favorites.length > storage.settings.maxFavorites) {
+        const excess = storage.favorites.length - storage.settings.maxFavorites;
+        storage.favorites = storage.favorites
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+          .slice(0, storage.settings.maxFavorites);
+        skipped += excess;
+      }
+
+      await this.saveExtensionStorage(storage);
+      
+      return { imported, skipped };
+    } catch (error) {
+      if (error instanceof StorageError) {
+        throw error;
+      }
+      if (error instanceof SyntaxError) {
+        throw new StorageError(
+          '无效的 JSON 格式',
+          'importHistory'
+        );
+      }
+      throw new StorageError(
+        'Failed to import history data',
+        'importHistory',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Validate import data structure
+   */
+  private isValidImportData(obj: any): boolean {
+    if (!obj || typeof obj !== 'object') return false;
+    if (!Array.isArray(obj.favorites)) return false;
+    
+    return obj.favorites.every((entry: any) => {
+      return (
+        typeof entry === 'object' &&
+        entry !== null &&
+        typeof entry.text === 'string' &&
+        typeof entry.name === 'string' &&
+        entry.text.trim().length > 0
+      );
+    });
+  }
 }
