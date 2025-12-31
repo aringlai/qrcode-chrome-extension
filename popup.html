@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二维码生成器</title>
+    <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+    <div class="container">
+        <main class="main-content">
+            <!-- 输入区域 -->
+            <section class="input-section">
+                <textarea 
+                    id="textInput" 
+                    placeholder="输入文本生成二维码..."
+                    rows="4"
+                ></textarea>
+                <div class="button-row">
+                    <button id="generateBtn" class="generate-btn">生成二维码</button>
+                    <div class="history-wrapper">
+                        <button id="historyBtn" class="history-btn" title="历史记录">
+                            <span class="history-icon">📋</span>
+                            <span id="historyCount" class="history-count" style="display: none;">0</span>
+                        </button>
+                        <!-- Popper 弹出层 -->
+                        <div id="favoritesSection" class="favorites-popper" style="display: none;">
+                            <div class="popper-arrow"></div>
+                            <div class="favorites-header">
+                                <span class="favorites-title">历史记录</span>
+                                <button id="clearAllBtn" class="clear-all-btn" title="清空全部">清空</button>
+                            </div>
+                            <div id="storageInfo" class="storage-info" style="display: none;">
+                                <div class="storage-bar">
+                                    <div class="storage-used"></div>
+                                </div>
+                                <div class="storage-text">
+                                    <span id="storageUsage">0%</span> 已用
+                                    <span id="favoritesCount">(0/100 条记录)</span>
+                                </div>
+                            </div>
+                            <div id="favoritesList" class="favorites-list">
+                                <div class="no-favorites">暂无历史记录</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 二维码显示区域 -->
+            <section class="qr-display-section">
+                <div id="qrCodeContainer" class="qr-container">
+                    <div class="placeholder-text">二维码将在此显示</div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <script src="dist/popup.js"></script>
+</body>
+</html>
