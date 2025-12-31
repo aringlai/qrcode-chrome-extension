@@ -17,6 +17,9 @@
                     rows="4"
                 ></textarea>
                 <div class="button-row">
+                    <button id="newBtn" class="new-btn" title="新建">
+                        <span class="new-icon">➕</span>
+                    </button>
                     <button id="generateBtn" class="generate-btn">生成二维码</button>
                     <div class="history-wrapper">
                         <button id="historyBtn" class="history-btn" title="历史记录">
@@ -29,6 +32,9 @@
                             <div class="favorites-header">
                                 <span class="favorites-title">历史记录</span>
                                 <button id="clearAllBtn" class="clear-all-btn" title="清空全部">清空</button>
+                            </div>
+                            <div class="search-wrapper">
+                                <input type="text" id="historySearch" class="history-search" placeholder="搜索历史记录..." />
                             </div>
                             <div id="storageInfo" class="storage-info" style="display: none;">
                                 <div class="storage-bar">

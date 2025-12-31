@@ -406,6 +406,48 @@ export class FavoritesManager {
   }
 
   /**
+   * Set the last accessed favorite ID
+   * 
+   * @param id ID of the last accessed favorite
+   */
+  async setLastAccessedId(id: string | null): Promise<void> {
+    try {
+      const storage = await this.loadStorage();
+      if (id === null) {
+        delete storage.settings.lastAccessedId;
+      } else {
+        storage.settings.lastAccessedId = id;
+      }
+      await this.storageService.saveExtensionStorage(storage);
+      this.cache = storage;
+    } catch (error) {
+      console.warn('Failed to save last accessed ID:', error);
+    }
+  }
+
+  /**
+   * Get the last accessed favorite entry
+   * 
+   * @returns Promise resolving to the last accessed HistoryEntry or null
+   */
+  async getLastAccessedFavorite(): Promise<HistoryEntry | null> {
+    try {
+      const storage = await this.loadStorage();
+      const lastAccessedId = storage.settings.lastAccessedId;
+      
+      if (!lastAccessedId) {
+        return null;
+      }
+      
+      const favorite = storage.favorites.find(entry => entry.id === lastAccessedId);
+      return favorite ? { ...favorite } : null;
+    } catch (error) {
+      console.warn('Failed to get last accessed favorite:', error);
+      return null;
+    }
+  }
+
+  /**
    * Invalidate cache to force reload from storage
    */
   invalidateCache(): void {

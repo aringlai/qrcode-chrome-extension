@@ -20,8 +20,10 @@ class PopupController {
   // UI Elements
   private textInput: HTMLTextAreaElement;
   private generateBtn: HTMLButtonElement;
+  private newBtn: HTMLButtonElement;
   private historyBtn: HTMLButtonElement;
   private historyCount: HTMLElement;
+  private historySearch: HTMLInputElement;
   private qrContainer: HTMLElement;
   private favoritesSection: HTMLElement;
   private favoritesList: HTMLElement;
@@ -34,6 +36,7 @@ class PopupController {
   private currentFavoriteId: string | null = null;
   private isGenerating: boolean = false;
   private isHistoryVisible: boolean = false;
+  private searchQuery: string = '';
 
   constructor() {
     try {
@@ -45,8 +48,10 @@ class PopupController {
       // Initialize UI elements
       this.textInput = document.getElementById('textInput') as HTMLTextAreaElement;
       this.generateBtn = document.getElementById('generateBtn') as HTMLButtonElement;
+      this.newBtn = document.getElementById('newBtn') as HTMLButtonElement;
       this.historyBtn = document.getElementById('historyBtn') as HTMLButtonElement;
       this.historyCount = document.getElementById('historyCount') as HTMLElement;
+      this.historySearch = document.getElementById('historySearch') as HTMLInputElement;
       this.qrContainer = document.getElementById('qrCodeContainer') as HTMLElement;
       this.favoritesSection = document.getElementById('favoritesSection') as HTMLElement;
       this.favoritesList = document.getElementById('favoritesList') as HTMLElement;
@@ -56,7 +61,7 @@ class PopupController {
       this.favoritesCount = document.getElementById('favoritesCount') as HTMLElement;
       
       // Validate required elements exist
-      if (!this.textInput || !this.generateBtn || !this.qrContainer || !this.favoritesList || 
+      if (!this.textInput || !this.generateBtn || !this.newBtn || !this.qrContainer || !this.favoritesList || 
           !this.clearAllBtn || !this.historyBtn || !this.favoritesSection) {
         throw new Error('Required UI elements not found in DOM');
       }
@@ -81,11 +86,40 @@ class PopupController {
    */
   private initializeEventListeners(): void {
     this.generateBtn.addEventListener('click', () => this.handleGenerateClick());
+    this.newBtn.addEventListener('click', () => this.handleNewClick());
     this.textInput.addEventListener('input', () => this.handleTextInputChange());
     this.textInput.addEventListener('keydown', (e) => this.handleTextInputKeydown(e));
     this.textInput.addEventListener('focus', () => this.handleTextInputFocus());
     this.clearAllBtn.addEventListener('click', () => this.handleClearAllClick());
     this.historyBtn.addEventListener('click', () => this.toggleHistory());
+    this.historySearch.addEventListener('input', () => this.handleSearchInput());
+  }
+
+  /**
+   * Handle search input change
+   */
+  private handleSearchInput(): void {
+    this.searchQuery = this.historySearch.value.trim().toLowerCase();
+    this.refreshFavoritesList();
+  }
+
+  /**
+   * Handle new button click - clear current content for new QR code
+   */
+  private handleNewClick(): void {
+    this.textInput.value = '';
+    this.currentFavoriteId = null;
+    this.qrContainer.innerHTML = '<div class="placeholder-text">二维码将在此显示</div>';
+    this.handleTextInputChange();
+    this.textInput.focus();
+    
+    // Clear last accessed ID and session storage
+    this.favoritesManager.setLastAccessedId(null);
+    try {
+      sessionStorage.removeItem('qr_generator_input');
+    } catch (error) {
+      console.warn('Could not clear session storage:', error);
+    }
   }
 
   /**
@@ -97,6 +131,8 @@ class PopupController {
     this.historyBtn.classList.toggle('active', this.isHistoryVisible);
     
     if (this.isHistoryVisible) {
+      this.searchQuery = '';
+      this.historySearch.value = '';
       this.refreshFavoritesList();
     }
   }
@@ -159,10 +195,12 @@ class PopupController {
       try {
         if (this.currentFavoriteId) {
           await this.favoritesManager.updateFavorite(this.currentFavoriteId, { text: text });
+          await this.favoritesManager.setLastAccessedId(this.currentFavoriteId);
           this.showSuccessMessage('已更新');
         } else {
           const newFavorite = await this.favoritesManager.saveFavorite(text);
           this.currentFavoriteId = newFavorite.id;
+          await this.favoritesManager.setLastAccessedId(newFavorite.id);
           this.showSuccessMessage('已保存');
         }
         
@@ -274,7 +312,9 @@ class PopupController {
       this.setLoadingState(true);
       
       await this.updateHistoryCount();
-      await this.restoreInputState();
+      
+      // Load the most recent history entry
+      await this.loadMostRecentHistory();
       
       this.textInput.focus();
       
@@ -283,6 +323,33 @@ class PopupController {
       this.showError('加载失败，请刷新重试');
     } finally {
       this.setLoadingState(false);
+    }
+  }
+
+  /**
+   * Load the most recent history entry and generate its QR code
+   */
+  private async loadMostRecentHistory(): Promise<void> {
+    try {
+      // Get the last accessed favorite
+      const lastAccessed = await this.favoritesManager.getLastAccessedFavorite();
+      
+      if (!lastAccessed) {
+        return;
+      }
+      
+      // Set the text input and current favorite ID
+      this.textInput.value = lastAccessed.text;
+      this.currentFavoriteId = lastAccessed.id;
+      this.handleTextInputChange();
+      
+      // Generate the QR code
+      await this.qrGenerator.generateQRCode(lastAccessed.text, this.qrContainer);
+      
+    } catch (error) {
+      console.warn('Could not load last accessed history:', error);
+      // Fall back to restoring input state
+      await this.restoreInputState();
     }
   }
 
@@ -340,20 +407,29 @@ class PopupController {
     try {
       const favorites = await this.favoritesManager.getFavorites();
       
+      // Filter by search query
+      let filteredFavorites = favorites;
+      if (this.searchQuery) {
+        filteredFavorites = favorites.filter(favorite => 
+          favorite.name.toLowerCase().includes(this.searchQuery) ||
+          favorite.text.toLowerCase().includes(this.searchQuery)
+        );
+      }
+      
       this.clearAllBtn.disabled = favorites.length === 0;
       this.clearAllBtn.style.display = favorites.length === 0 ? 'none' : 'inline-block';
       
       this.favoritesList.innerHTML = '';
       
-      if (favorites.length === 0) {
+      if (filteredFavorites.length === 0) {
         const noFavoritesDiv = document.createElement('div');
         noFavoritesDiv.className = 'no-favorites';
-        noFavoritesDiv.textContent = '暂无历史记录';
+        noFavoritesDiv.textContent = this.searchQuery ? '未找到匹配的记录' : '暂无历史记录';
         this.favoritesList.appendChild(noFavoritesDiv);
         return;
       }
       
-      const sortedFavorites = favorites.sort((a, b) => 
+      const sortedFavorites = filteredFavorites.sort((a, b) => 
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
       
@@ -491,6 +567,9 @@ class PopupController {
     this.textInput.focus();
     this.handleTextInputChange();
     this.highlightSelectedFavorite(favorite.id);
+    
+    // Save as last accessed
+    await this.favoritesManager.setLastAccessedId(favorite.id);
     
     // 关闭 Popper
     this.closeHistory();

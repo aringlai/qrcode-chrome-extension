@@ -105,6 +105,35 @@ body {
     transform: none;
 }
 
+/* New button */
+.new-btn {
+    background: #f8f9fc;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.new-btn:hover {
+    background: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+}
+
+.new-btn:active {
+    transform: translateY(0);
+}
+
+.new-icon {
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
 /* History wrapper for popper positioning */
 .history-wrapper {
     position: relative;
@@ -203,7 +232,33 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 14px 16px 10px;
+}
+
+/* Search wrapper */
+.search-wrapper {
+    padding: 0 12px 10px;
     border-bottom: 1px solid #f3f4f6;
+}
+
+.history-search {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 12px;
+    background: #f9fafb;
+    transition: all 0.2s ease;
+}
+
+.history-search:focus {
+    outline: none;
+    border-color: #667eea;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.history-search::placeholder {
+    color: #9ca3af;
 }
 
 .favorites-title {
@@ -418,7 +473,8 @@ body {
 /* QR Code display section */
 .qr-display-section {
     padding-bottom: 8px;
-    padding-left: 12px;
+    display: flex;
+    justify-content: center;
 }
 
 .qr-container {

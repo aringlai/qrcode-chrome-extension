@@ -37,6 +37,9 @@ export interface ExtensionSettings {
   
   /** Default QR code size in pixels (default: 256) */
   defaultQRSize: number;
+  
+  /** ID of the last accessed history entry */
+  lastAccessedId?: string;
 }
 
 /**

@@ -48,3 +48,5 @@ temp/
 # Extension package
 *.zip
 extension-package/
+qr-code-generator-extension.pem
+qr-code-generator-extension.crx
